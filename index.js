@@ -252,14 +252,6 @@ async function run() {
       res.send(result);
     });
 
-
-    //get all tickets both pending and accepted
-    app.get('/tickets', async (req, res) => {
-      const result = await allTicketCollection.find().toArray()
-
-      res.send(result)
-    })
-
     // Approve ticket that is posted by vendor 
     app.patch('/tickets/:id/approve', verifyJWT, async (req, res) => {
       const id = req.params.id;
