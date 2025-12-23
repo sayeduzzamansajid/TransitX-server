@@ -60,7 +60,7 @@ async function run() {
   try {
 
 
-    //save a plant in db 
+    //save a user in db 
     const db = client.db('TransitX');
     const userCollection = db.collection('user');
     const allTicketCollection = db.collection('tickets');
@@ -318,7 +318,76 @@ async function run() {
     app.get('/all-users', async (req, res) => {
       const result = await userCollection.find().toArray()
       res.send(result)
-    })
+    });
+
+    //Admin role select 
+    // PATCH /users/:id/role  body: { role: "admin" | "vendor" | "user" }
+    app.patch("/users/:id/role", verifyJWT, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { role } = req.body; // "admin" or "vendor" or "user"
+
+        if (!["admin", "vendor", "user"].includes(role)) {
+          return res.status(400).send({ message: "Invalid role" });
+        }
+
+        const result = await userCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { role, isFraud:false } },
+        );
+
+        res.send(result);
+      } catch (err) {
+        console.error("PATCH /users/:id/role error", err);
+        res.status(500).send({ message: "Failed to update role" });
+      }
+    });
+
+    //makind the vendor fraud 
+    // PATCH /users/:id/fraud  body: { isFraud: true }
+    app.patch("/users/:id/fraud", verifyJWT, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { isFraud } = req.body; // expect true
+
+        // 1) Get user
+        const user = await userCollection.findOne({ _id: new ObjectId(id) });
+        if (!user) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        // only vendor can be marked as fraud
+        if (user.role !== "vendor") {
+          return res
+            .status(400)
+            .send({ message: "Only vendors can be marked as fraud" });
+        }
+
+        // 2) Update user as fraud
+        await userCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { isFraud: !!isFraud } }
+        );
+
+        // 3) Hide all tickets of this vendor
+        await allTicketCollection.updateMany(
+          { "seller.email": user.email },
+          {
+            $set: {
+              verificationStatus: "rejected",
+              hiddenForFraud: true,
+            },
+          }
+        );
+
+        res.send({ message: "Vendor marked as fraud and tickets hidden" });
+      } catch (err) {
+        console.error("PATCH /users/:id/fraud error", err);
+        res.status(500).send({ message: "Failed to mark fraud" });
+      }
+    });
+
+
 
 
     // GET all tickets (admin)
