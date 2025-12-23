@@ -119,7 +119,7 @@ async function run() {
     });
 
     //get ticked details page id based
-    app.get("/tickets/:id", async (req, res) => {
+    app.get("/ticket/:id", async (req, res) => {
       try {
         const id = req.params.id;
 
@@ -136,6 +136,70 @@ async function run() {
       } catch (err) {
         console.error("GET /tickets/:id error", err);
         res.status(500).send({ message: "Failed to load ticket" });
+      }
+    });
+
+    // PATCH Advertise Section 
+    app.patch("/tickets/:id/advertise", verifyJWT, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { isAdvertised } = req.body;
+
+        // if turning ON, enforce max 6 advertised
+        if (isAdvertised) {
+          const advertisedCount = await allTicketCollection.countDocuments({
+            verificationStatus: "approved",
+            isAdvertised: true,
+          });
+
+          if (advertisedCount >= 6) {
+            return res
+              .status(400)
+              .send({ message: "Cannot advertise more than 6 tickets at a time" });
+          }
+        }
+
+        const result = await allTicketCollection.updateOne(
+          { _id: new ObjectId(id), verificationStatus: "approved" },
+          { $set: { isAdvertised: !!isAdvertised } }
+        );
+
+        res.send(result);
+      } catch (err) {
+        console.error("PATCH /tickets/:id/advertise error", err);
+        res.status(500).send({ message: "Failed to update advertise status" });
+      }
+    });
+    //get the advertised
+    app.get("/tickets/advertised", async (req, res) => {
+      try {
+        const result = await allTicketCollection
+          .find({ verificationStatus: "approved", isAdvertised: true })
+          .limit(6) // exactly / at most 6
+          .toArray();
+
+        res.send(result);
+      } catch (err) {
+        console.error("GET /tickets/advertised error", err);
+        res.status(500).send({ message: "Failed to load advertised tickets" });
+      }
+    });
+
+    //Latest Ticket for Latest Ticket Section 
+    // latest approved tickets, sorted by latest acceptedAt
+    app.get("/tickets/latest", async (req, res) => {
+      try {
+        const result = await allTicketCollection
+          .find({ verificationStatus: "approved" })
+          .sort({
+            acceptedAt: -1
+          }) // newest approved first
+          .toArray();
+
+        res.send(result);
+      } catch (err) {
+        console.error("GET /tickets/latest error", err);
+        res.status(500).send({ message: "Failed to load latest tickets" });
       }
     });
 
@@ -216,6 +280,8 @@ async function run() {
     app.post('/tickets', async (req, res) => {
       const ticketData = req.body;
       ticketData.verificationStatus = 'pending';
+      ticketData.createdAt = new Date();
+      ticketData.acceptedAt = null;
 
       console.log(ticketData);
 
@@ -246,6 +312,12 @@ async function run() {
     //Admin site API's <-------------------------------------------------->  ADMIN  <---------------------------------------->
 
     //getting all user in database
+    app.get('/all-users', async (req, res) => {
+      const result = await userCollection.find().toArray()
+      res.send(result)
+    })
+
+
     // GET all tickets (admin)
     app.get('/tickets', verifyJWT, async (req, res) => {
       const result = await allTicketCollection.find().toArray();
@@ -257,7 +329,12 @@ async function run() {
       const id = req.params.id;
       const result = await allTicketCollection.updateOne(
         { _id: new ObjectId(id) },
-        { $set: { verificationStatus: "approved" } }
+        {
+          $set: {
+            verificationStatus: "approved",
+            acceptedAt: new Date()
+          }
+        }
       );
       console.log(result);
       res.send(result);
