@@ -282,6 +282,9 @@ async function run() {
       ticketData.verificationStatus = 'pending';
       ticketData.createdAt = new Date();
       ticketData.acceptedAt = null;
+      if (!Array.isArray(ticketData.perks) || ticketData.perks.length === 0) {
+        ticketData.perks = ["None"];
+      }
 
       console.log(ticketData);
 
