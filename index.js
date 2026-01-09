@@ -46,6 +46,20 @@ const verifyJWT = async (req, res, next) => {
   }
 }
 
+
+
+
+
+const verifyAdmin = async (req, res, next) => {
+  const email = req.tokenEmail; // Comes from verifyJWT
+  const query = { email: email };
+  const user = await client.db('TransitX').collection('user').findOne(query);
+  const isAdmin = user?.role === 'admin';
+  if (!isAdmin) {
+    return res.status(403).send({ message: 'forbidden access' });
+  }
+  next();
+}
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(process.env.MONGODB_URI, {
   serverApi: {
@@ -64,6 +78,8 @@ async function run() {
     const db = client.db('TransitX');
     const userCollection = db.collection('user');
     const allTicketCollection = db.collection('tickets');
+    const bookingsCollection = db.collection('bookings'); // <--- YOU WERE MISSING THIS!
+    const paymentsCollection = db.collection('payments'); // You will need this for Assignment 11 later
 
     // save new user or Update existing user in database 
     app.post('/user', async (req, res) => {
@@ -315,14 +331,14 @@ async function run() {
     //Admin site API's <-------------------------------------------------->  ADMIN  <---------------------------------------->
 
     //getting all user in database
-    app.get('/all-users', async (req, res) => {
+    app.get('/all-users',verifyJWT, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray()
       res.send(result)
     });
 
     //Admin role select 
     // PATCH /users/:id/role  body: { role: "admin" | "vendor" | "user" }
-    app.patch("/users/:id/role", verifyJWT, async (req, res) => {
+    app.patch("/users/:id/role", verifyJWT, verifyAdmin, async (req, res) => {
       try {
         const id = req.params.id;
         const { role } = req.body; // "admin" or "vendor" or "user"
@@ -333,7 +349,7 @@ async function run() {
 
         const result = await userCollection.updateOne(
           { _id: new ObjectId(id) },
-          { $set: { role, isFraud:false } },
+          { $set: { role, isFraud: false } },
         );
 
         res.send(result);
@@ -345,7 +361,7 @@ async function run() {
 
     //makind the vendor fraud 
     // PATCH /users/:id/fraud  body: { isFraud: true }
-    app.patch("/users/:id/fraud", verifyJWT, async (req, res) => {
+    app.patch("/users/:id/fraud", verifyJWT, verifyAdmin, async (req, res) => {
       try {
         const id = req.params.id;
         const { isFraud } = req.body; // expect true
