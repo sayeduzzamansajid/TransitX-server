@@ -60,6 +60,22 @@ const verifyAdmin = async (req, res, next) => {
   }
   next();
 }
+
+
+
+const verifyVendor = async (req, res, next) => {
+  const email = req.tokenEmail; // Comes from verifyJWT
+  const query = { email: email };
+  const user = await client.db('TransitX').collection('user').findOne(query);
+  const isAdmin = user?.role === 'vendor';
+  if (!isAdmin) {
+    return res.status(403).send({ message: 'forbidden access' });
+  }
+  next();
+}
+
+
+
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(process.env.MONGODB_URI, {
   serverApi: {
@@ -293,7 +309,7 @@ async function run() {
     //Vendor site API's <------------------------------------------->   VENDOR  <-------------------------------------->
 
     //add a ticket/ post ticket
-    app.post('/tickets', async (req, res) => {
+    app.post('/tickets', verifyJWT,verifyVendor,  async (req, res) => {
       const ticketData = req.body;
       ticketData.verificationStatus = 'pending';
       ticketData.createdAt = new Date();
@@ -413,7 +429,7 @@ async function run() {
     });
 
     // Approve ticket that is posted by vendor 
-    app.patch('/tickets/:id/approve', verifyJWT, async (req, res) => {
+    app.patch('/tickets/:id/approve', verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const result = await allTicketCollection.updateOne(
         { _id: new ObjectId(id) },
@@ -430,7 +446,7 @@ async function run() {
 
 
     // Reject ticket that is posted by vendor 
-    app.patch('/tickets/:id/reject', verifyJWT, async (req, res) => {
+    app.patch('/tickets/:id/reject', verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const result = await allTicketCollection.updateOne(
         { _id: new ObjectId(id) },
