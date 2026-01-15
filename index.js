@@ -146,6 +146,9 @@ async function run() {
     app.get('/tickets/approved', async (req, res) => {
       const result = await allTicketCollection
         .find({ verificationStatus: "approved" })
+        .sort({
+            acceptedAt: -1
+          })
         .toArray();
       res.send(result);
     });
@@ -171,43 +174,16 @@ async function run() {
       }
     });
 
-    // PATCH Advertise Section 
-    app.patch("/tickets/:id/advertise", verifyJWT, async (req, res) => {
-      try {
-        const id = req.params.id;
-        const { isAdvertised } = req.body;
 
-        // if turning ON, enforce max 6 advertised
-        if (isAdvertised) {
-          const advertisedCount = await allTicketCollection.countDocuments({
-            verificationStatus: "approved",
-            isAdvertised: true,
-          });
-
-          if (advertisedCount >= 6) {
-            return res
-              .status(400)
-              .send({ message: "Cannot advertise more than 6 tickets at a time" });
-          }
-        }
-
-        const result = await allTicketCollection.updateOne(
-          { _id: new ObjectId(id), verificationStatus: "approved" },
-          { $set: { isAdvertised: !!isAdvertised } }
-        );
-
-        res.send(result);
-      } catch (err) {
-        console.error("PATCH /tickets/:id/advertise error", err);
-        res.status(500).send({ message: "Failed to update advertise status" });
-      }
-    });
     //get the advertised
     app.get("/tickets/advertised", async (req, res) => {
       try {
         const result = await allTicketCollection
           .find({ verificationStatus: "approved", isAdvertised: true })
-          .limit(6) // exactly / at most 6
+          .limit(8) // exactly / at most 6
+          .sort({
+            acceptedAt: -1
+          })
           .toArray();
 
         res.send(result);
@@ -309,7 +285,7 @@ async function run() {
     //Vendor site API's <------------------------------------------->   VENDOR  <-------------------------------------->
 
     //add a ticket/ post ticket
-    app.post('/tickets', verifyJWT,verifyVendor,  async (req, res) => {
+    app.post('/tickets', verifyJWT, verifyVendor, async (req, res) => {
       const ticketData = req.body;
       ticketData.verificationStatus = 'pending';
       ticketData.createdAt = new Date();
@@ -347,7 +323,7 @@ async function run() {
     //Admin site API's <-------------------------------------------------->  ADMIN  <---------------------------------------->
 
     //getting all user in database
-    app.get('/all-users',verifyJWT, verifyAdmin, async (req, res) => {
+    app.get('/all-users', verifyJWT, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray()
       res.send(result)
     });
@@ -455,6 +431,38 @@ async function run() {
       res.send(result);
     });
 
+
+    // PATCH Advertise Section 
+    app.patch("/tickets/:id/advertise", verifyJWT, verifyAdmin, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { isAdvertised } = req.body;
+
+        // if turning ON, enforce max 6 advertised
+        if (isAdvertised) {
+          const advertisedCount = await allTicketCollection.countDocuments({
+            verificationStatus: "approved",
+            isAdvertised: true,
+          });
+
+          if (advertisedCount >= 8) {
+            return res
+              .status(400)
+              .send({ message: "Cannot advertise more than 8 tickets at a time" });
+          }
+        }
+
+        const result = await allTicketCollection.updateOne(
+          { _id: new ObjectId(id), verificationStatus: "approved" },
+          { $set: { isAdvertised: !!isAdvertised } }
+        );
+
+        res.send(result);
+      } catch (err) {
+        console.error("PATCH /tickets/:id/advertise error", err);
+        res.status(500).send({ message: "Failed to update advertise status" });
+      }
+    });
 
 
 
