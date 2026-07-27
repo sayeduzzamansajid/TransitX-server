@@ -18,10 +18,10 @@ const app = express()
 app.use(
   cors({
     origin: [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'https://transitx.pages.dev',
-      'https://transitx-a11.netlify.app'
+      // 'http://localhost:5173',
+      // 'http://localhost:5174',
+      // 'https://transitx.pages.dev',
+      // 'https://transitx-a11.netlify.app'
 
     ],
     credentials: true,
@@ -45,9 +45,6 @@ const verifyJWT = async (req, res, next) => {
     return res.status(401).send({ message: 'Unauthorized Access!', err })
   }
 }
-
-
-
 
 
 const verifyAdmin = async (req, res, next) => {
@@ -94,8 +91,8 @@ async function run() {
     const db = client.db('TransitX');
     const userCollection = db.collection('user');
     const allTicketCollection = db.collection('tickets');
-    const bookingsCollection = db.collection('bookings'); // <--- YOU WERE MISSING THIS!
-    const paymentsCollection = db.collection('payments'); // You will need this for Assignment 11 later
+    const bookingsCollection = db.collection('bookings'); 
+    const paymentsCollection = db.collection('payments'); 
 
     // save new user or Update existing user in database 
     app.post('/user', async (req, res) => {
@@ -109,9 +106,6 @@ async function run() {
       const query = { email: userData?.email }
       //checking user exist or not 
       const alreadyExist = await userCollection.findOne(query);
-
-      // console.log("user exists---->", !!alreadyExist);
-
       if (alreadyExist) {
         // console.log("updating user info-->");
         const result = await userCollection.updateOne(query, {
@@ -121,16 +115,12 @@ async function run() {
         })
         return res.send(result)
       }
-
-      //saving to mongodb
-      // console.log("saving new user-->");
       const result = await userCollection.insertOne(userData)
-
-      // console.log(userData);
 
 
       res.send(userData)
     });
+    
     //get user role 
     app.get('/user/role/:email', async (req, res) => {
       const email = req?.params?.email;
@@ -160,7 +150,7 @@ async function run() {
 
         const ticket = await allTicketCollection.findOne({
           _id: new ObjectId(id),
-          verificationStatus: "approved", // remove this filter if you want vendors to see their own pending ticket details
+          verificationStatus: "approved", 
         });
 
         if (!ticket) {
